@@ -1,0 +1,17 @@
+#ifndef _PLATFORM_H_
+#define _PLATFORM_H_
+
+#ifdef __SAMD21G18A__
+#include "PlatformSAMD21.h"
+#define platform_setup_clock samd21_setup_clock
+#define platform_enable_clock samd21_enable_clock
+#define platform_disable_clock samd21_disable_clock
+#define platform_enable_clock_irq samd21_enable_clock_irq
+#define platform_disable_clock_irq samd21_disable_clock_irq
+#define platform_stop_clock samd21_stop_clock
+#define platform_setup_watchdog samd21_setup_watchdog
+#define platform_reset_watchdog samd21_reset_watchdog
+#define platform_get_free_memory samd21_get_free_memory
+#endif
+
+#endif //_PLATFORM_H_
