@@ -129,9 +129,8 @@ void loop() {
 
   // print log if someone writes to our serial input
   if (Serial.available() && Serial.read()) {
-    if (!logBuffer->empty()) printLog();
-    logStatus();
     printLog();
+    logStatus(); printLog();
   }
 
   // transmission in progress

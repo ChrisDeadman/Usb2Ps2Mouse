@@ -2,7 +2,7 @@
 #include "StopWatch.h"
 
 Ps2Mouse::Ps2Mouse() {
-  reset();
+  setDefaults();
 }
 
 bool Ps2Mouse::hasData() {
@@ -51,11 +51,9 @@ void Ps2Mouse::updateMovementData(MovementData& movementData) {
     scaledY = (scaledY >> 1) | ((scaledY & 1) ? 1 : 0);
     res <<= 1;
   }
-  if (movementData.x < 0) scaledX = -scaledX;
-  if (movementData.y < 0) scaledY = -scaledY;
 
-  this->movementData.x = scaledX;
-  this->movementData.y = scaledY;
+  this->movementData.x = (movementData.x < 0) ? -scaledX : scaledX;
+  this->movementData.y = (movementData.y < 0) ? -scaledY : scaledY;
   this->movementData.button1 = movementData.button1;
   this->movementData.button2 = movementData.button2;
   this->movementData.button3 = movementData.button3;

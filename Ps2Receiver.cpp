@@ -62,13 +62,11 @@ void Ps2Receiver::onClock() {
     case 9: // parity bit
       if (bit != parity) {
         dataValid = false;
-        dataByte = 0xC5;
       }
       break;
     case 10: // stop bit
       if (bit != 1) {
         dataValid = false;
-        dataByte = 0x5B;
       }
       dataPresent = true;
       digitalWrite(DATA_PIN, dataValid ? LOW : HIGH); // ACK / NAK

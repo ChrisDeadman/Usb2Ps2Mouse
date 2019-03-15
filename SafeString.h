@@ -45,9 +45,7 @@ class SafeString {
 
     SafeString* concat(uint32_t value, const char * format) {
       uint16_t offset = length();
-      if (offset < maxSize) {
-        sprintf(&buffer[offset], format, value);
-      }
+      snprintf(&buffer[offset], maxSize-offset, format, value);
       return this;
     }
 
@@ -58,7 +56,7 @@ class SafeString {
 
   private:
 
-    uint16_t safeSize(uint16_t offset, uint16_t size) {
+    inline uint16_t safeSize(uint16_t offset, uint16_t size) {
       return (size <= (maxSize - offset)) ? size : (maxSize - offset);
     }
 };
