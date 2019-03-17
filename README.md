@@ -7,6 +7,7 @@ Author: ChrisDeadman
 Convert a USB mouse into a PS/2 mouse with the power of arduino :-)
 
 ## Notes
+* Provides IntelliMouse support (5 buttons + scrollwheel)
 * Watchdog timer is enabled and configured to 4sec
 * You need to lower USB_XFER_TIMEOUT (e.g. to 50) in **UsbCore.h** (part of the used platform library)  
   Usb.Task() may otherwise take longer than the watchdog's timeout and the chip will just reset over and over
@@ -19,7 +20,6 @@ Convert a USB mouse into a PS/2 mouse with the power of arduino :-)
 * Note that PS/2 ports are only rated up to 250mA, so be careful which USB devices you connect
 
 ## (Known) Limitations
-* Mouse is limited to 3 buttons without scrollwheel because USBHost support is only supported via the HidBoot protocol
 * It is not a keyboard (altho the included **PS2Device** library can be used to build one)
 
 ## Supported Arduino Boards
@@ -33,6 +33,8 @@ Release notes
 ### Usb => Ps2Mouse v0.2
 * Switch to PlatformIO IDE
 * Move PS2 code to dedicated **PS2Device** library for better usability
+* Implement custom **HIDMouseController** for 5 button + scrollwheel support
+* Add IntelliMouse support (5 buttons + scrollwheel)
 
 ### Usb => Ps2Mouse v0.1
 * Initial version

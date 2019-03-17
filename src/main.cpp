@@ -5,37 +5,18 @@
 #include "PS2Mouse.h"
 PS2PortSAMD21 ps2Port;
 PS2Mouse ps2Mouse(&ps2Port);
-MovementData movementData;
 
 //
 // USB mouse Controller
 //
 #include <usbhub.h>
-#include <MouseController.h>
+#include "HIDMouseController.h"
 USBHost usb;
 USBHub usbHub(&usb); // so we can support controllers connected via hubs
-MouseController usbMouse(usb);
+HIDMouseController usbMouse(&usb);
 
-inline void usbMouseDataChanged() {
-  movementData.x = usbMouse.getXChange();
-  movementData.y = -usbMouse.getYChange(); // y is inverted
-  movementData.button1 = usbMouse.getButton(LEFT_BUTTON);
-  movementData.button2 = usbMouse.getButton(RIGHT_BUTTON);
-  movementData.button3 = usbMouse.getButton(MIDDLE_BUTTON);
-  ps2Mouse.updateMovementData(movementData);
-}
-
-void mouseMoved() {
-  usbMouseDataChanged();
-}
-void mouseDragged() {
-  usbMouseDataChanged();
-}
-void mousePressed() {
-  usbMouseDataChanged();
-}
-void mouseReleased() {
-  usbMouseDataChanged();
+void hidMouseStateChange(MouseState * state) {
+  ps2Mouse.updateState(state);
 }
 
 //
@@ -70,6 +51,8 @@ inline void ps2DataSent(uint8_t dataByte) {
 void logStatus() {
   logBuffer->concat("----------------------")->concat("\r\n");
   logBuffer->concat("USB => PS/2 Mouse V0.2")->concat("\r\n");
+  logBuffer->concat("----------------------")->concat("\r\n");
+  logBuffer->concat("device_id=")->concat(ps2Mouse.getDeviceId(), "%d")->concat("\r\n");
   logBuffer->concat("----------------------")->concat("\r\n");
   logBuffer->concat("free_memory=")->concat(getFreeMemory(), "%d")->concat("\r\n");
   logBuffer->concat("time_now=")->concat(millis(), "%lu")->concat("\r\n");
