@@ -32,6 +32,7 @@ Release notes
 
 ### Usb => Ps2Mouse v0.2
 * Switch to PlatformIO IDE
+* Move PS2 code to dedicated **PS2Device** library for better usability
 
 ### Usb => Ps2Mouse v0.1
 * Initial version

@@ -1,41 +1,51 @@
-#include "Ps2Receiver.h"
+#include "PS2Receiver.h"
 
-bool Ps2Receiver::isReceiving() {
+// callbacks
+extern "C" {
+  void __ps2DataReceivedEmptyCallback(uint8_t dataByte, bool dataValid) { }
+}
+// implement in your code
+void ps2DataReceived(uint8_t dataByte, bool dataValid) __attribute__ ((weak, alias("__ps2DataReceivedEmptyCallback")));
+
+bool PS2Receiver::isReceiving() {
   return receiving;
 }
 
-bool Ps2Receiver::hasData() {
+bool PS2Receiver::hasData() {
   return dataPresent;
 }
 
-bool Ps2Receiver::isDataValid() {
+bool PS2Receiver::isDataValid() {
   return dataValid;
 }
 
-uint8_t Ps2Receiver::popData() {
+uint8_t PS2Receiver::popData() {
   dataPresent = false;
   return dataByte;
 }
 
-void Ps2Receiver::beginReceive() {
+void PS2Receiver::beginReceive() {
   dataByte = 0;
   bitIdx = 0;
   dataValid = true;
   dataPresent = false;
   if (!receiving) {
-    platform_enable_clock();
     receiving = true;
+    port->enableClock();
   }
 }
 
-void Ps2Receiver::endReceive() {
+void PS2Receiver::endReceive() {
   if (receiving) {
-    platform_disable_clock();
     receiving = false;
+    port->disableClock();
+  }
+  if (bitIdx >= 11) {
+    ps2DataReceived(dataByte, dataValid);
   }
 }
 
-void Ps2Receiver::onClock() {
+void PS2Receiver::onClock() {
   if (!receiving) {
     return;
   }
@@ -46,7 +56,7 @@ void Ps2Receiver::onClock() {
     return;
   }
 
-  uint8_t bit = digitalRead(DATA_PIN) == HIGH ? 1 : 0;
+  uint8_t bit = port->read();
 
   switch (bitIdx) {
     case 0: // start bit
@@ -69,13 +79,13 @@ void Ps2Receiver::onClock() {
         dataValid = false;
       }
       dataPresent = true;
-      digitalWrite(DATA_PIN, dataValid ? LOW : HIGH); // ACK / NAK
-      break;
+      port->write(dataValid ? 0 : 1); // ACK / NAK
+    break;
   }
   bitIdx++;
 }
 
-void Ps2Receiver::onInhibit() {
+void PS2Receiver::onInhibit() {
   if (!receiving) {
     return;
   }

@@ -1,24 +1,17 @@
-#include "Ps2Mouse.h"
-#include "StopWatch.h"
+#include "PS2Mouse.h"
 
-Ps2Mouse::Ps2Mouse() {
-  setDefaults();
+void PS2Mouse::setDefaults() {
+  streamingMode = true;
+  activeCommand = 0;
+  dataReporting = false;
+  sampleRate = DEFAULT_SAMPLE_RATE;
+  resolution = DEFAULT_RESOLUTION;
+  scaling2x1 = DEFAULT_SCALING_2X1;
+  movementDataChanged = false;
+  lastTxTime = 0;
 }
 
-bool Ps2Mouse::hasData() {
-  return sendBufferIdx < sendBufferLen;
-}
-
-uint8_t Ps2Mouse::popData() {
-  if (!hasData()) {
-    return 0xFF;
-  }
-  uint8_t value = sendBuffer[sendBufferIdx];
-  sendBufferIdx++;
-  return value;
-}
-
-void Ps2Mouse::reset(bool sendAck) {
+void PS2Mouse::reset(bool sendAck) {
   setDefaults();
   uint8_t packet[3];
   uint8_t idx = 0;
@@ -30,19 +23,9 @@ void Ps2Mouse::reset(bool sendAck) {
   sendToHost(packet, idx);
 }
 
-void Ps2Mouse::setDefaults() {
-  streamingMode = true;
-  activeCommand = 0;
-  dataReporting = false;
-  sampleRate = DEFAULT_SAMPLE_RATE;
-  resolution = DEFAULT_RESOLUTION;
-  scaling2x1 = DEFAULT_SCALING_2X1;
-  lastTxTime = 0;
-}
-
-void Ps2Mouse::updateMovementData(MovementData& movementData) {
-  unsigned int scaledX = abs(movementData.x);
-  unsigned int scaledY = abs(movementData.y);
+void PS2Mouse::updateMovementData(MovementData& movementData) {
+  uint8_t scaledX = abs(movementData.x);
+  uint8_t scaledY = abs(movementData.y);
 
   // assume input is max.resolution
   uint8_t res = resolution;
@@ -57,51 +40,62 @@ void Ps2Mouse::updateMovementData(MovementData& movementData) {
   this->movementData.button1 = movementData.button1;
   this->movementData.button2 = movementData.button2;
   this->movementData.button3 = movementData.button3;
-  this->movementData.changed = movementData.changed;
+  this->movementDataChanged = true;
 }
 
-void Ps2Mouse::task(unsigned long tNow) {
+void PS2Mouse::task() {
+  // wait until transmission is finished
+  if (receiver.isReceiving() || sender.isSending()) {
+    return;
+  }
+
+  // data received
+  if (receiver.hasData()) {
+    // stop sending in case we currently are
+    sendBufferIdx = sendBufferLen;
+    // invoke command handlers
+    if (receiver.isDataValid()) {
+      if (activeCommand) {
+        handleActiveCommand(receiver.popData());
+      } else {
+        handleNewCommand(receiver.popData());
+      }
+    }
+    return;
+  }
+
+  // check if we have anything to send
+  if (sendBufferIdx < sendBufferLen) {
+    uint8_t dataByte = sendBuffer[sendBufferIdx++];
+    sender.beginSend(dataByte);
+    return;
+  }
+
   // don't send movement data if
-  if (!movementData.changed ||// there is no change
+  if (!movementDataChanged || // there is no change
       !streamingMode ||       // or streaming mode is disabled
       !dataReporting ||       // or data reporting is disabled
-      (activeCommand != 0) || // or an active command is being processed
-      hasData())              // or we're currently sending
+      (activeCommand != 0))   // or an active command is being processed
   {
     return;
   }
 
   // wait until sample time has passed
-  if (StopWatch::elapsed(lastTxTime, tNow) < (1000 / sampleRate)) {
+  unsigned long tNow = millis();
+  unsigned long elapsed = (tNow < lastTxTime) ? ((UINT32_MAX - lastTxTime) + tNow) : (tNow - lastTxTime);
+  if (elapsed < (1000 / sampleRate)) {
     return;
   }
 
   // send movement data
   uint8_t packet[3];
   buildMovementPacket(scaling2x1 ? true : false, packet);
-  movementData.changed = false;
   sendToHost(packet, 3);
+  movementDataChanged = false;
   lastTxTime = tNow;
 }
 
-void Ps2Mouse::receiveFromHost(uint8_t dataByte, bool valid) {
-  // stop sending immediately
-  sendBufferIdx = sendBufferLen;
-
-  if (valid) {
-    if (activeCommand) {
-      handleActiveCommand(dataByte);
-    } else {
-      handleNewCommand(dataByte);
-    }
-  }
-}
-
-void Ps2Mouse::resend() {
-  sendBufferIdx = 0;
-}
-
-inline void Ps2Mouse::sendToHost(const uint8_t * data, uint8_t len) {
+inline void PS2Mouse::sendToHost(const uint8_t * data, uint8_t len) {
   for (uint8_t idx = 0; idx < len; idx++) {
     sendBuffer[idx] = data[idx];
   }
@@ -109,7 +103,7 @@ inline void Ps2Mouse::sendToHost(const uint8_t * data, uint8_t len) {
   sendBufferLen = len;
 }
 
-inline void Ps2Mouse::handleActiveCommand(uint8_t dataByte) {
+inline void PS2Mouse::handleActiveCommand(uint8_t dataByte) {
   switch (activeCommand) {
     // Wrap Mode
     case (0xEE):
@@ -168,7 +162,7 @@ inline void Ps2Mouse::handleActiveCommand(uint8_t dataByte) {
   }
 }
 
-inline void Ps2Mouse::handleNewCommand(uint8_t dataByte) {
+inline void PS2Mouse::handleNewCommand(uint8_t dataByte) {
   uint8_t packet[4]; // prepare packet buffer
 
   switch (dataByte) {
@@ -183,7 +177,7 @@ inline void Ps2Mouse::handleNewCommand(uint8_t dataByte) {
       break;
     // Resend
     case 0xFE:
-      resend();
+      sendBufferIdx = 0;
       break;
     // Get Device ID
     case 0xF2:
@@ -255,7 +249,7 @@ inline void Ps2Mouse::handleNewCommand(uint8_t dataByte) {
   }
 }
 
-void Ps2Mouse::buildStatusPacket(uint8_t * packet) {
+void PS2Mouse::buildStatusPacket(uint8_t * packet) {
   packet[0] = 0;
   packet[1] = resolution;
   packet[2] = sampleRate;
@@ -268,9 +262,9 @@ void Ps2Mouse::buildStatusPacket(uint8_t * packet) {
   if (movementData.button2) packet[0] |= (1 << 0);
 }
 
-void Ps2Mouse::buildMovementPacket(boolean use2x1Scaling, uint8_t * packet) {
-  int absX = abs(movementData.x);
-  int absY = abs(movementData.y);
+void PS2Mouse::buildMovementPacket(boolean use2x1Scaling, uint8_t * packet) {
+  uint8_t absX = abs(movementData.x);
+  uint8_t absY = abs(movementData.y);
 
   if (use2x1Scaling) {
     absX = apply2x1Scaling(absX);
@@ -281,8 +275,8 @@ void Ps2Mouse::buildMovementPacket(boolean use2x1Scaling, uint8_t * packet) {
   packet[1] = (uint8_t)(((movementData.x >= 0) ? (absX) : (~absX + 1)) & 0xFF); // two's complement
   packet[2] = (uint8_t)(((movementData.y >= 0) ? (absY) : (~absY + 1)) & 0xFF); // two's complement
 
-  if (absY > 255) packet[0] |= (1 << 7);
-  if (absX > 255) packet[0] |= (1 << 6);
+  if (absY > 128) packet[0] |= (1 << 7);
+  if (absX > 128) packet[0] |= (1 << 6);
   if (movementData.y < 0) packet[0] |= (1 << 5);
   if (movementData.x < 0) packet[0] |= (1 << 4);
   if (movementData.button3) packet[0] |= (1 << 2);
@@ -290,7 +284,7 @@ void Ps2Mouse::buildMovementPacket(boolean use2x1Scaling, uint8_t * packet) {
   if (movementData.button1) packet[0] |= (1 << 0);
 }
 
-int Ps2Mouse::apply2x1Scaling(int movement) {
+int PS2Mouse::apply2x1Scaling(int movement) {
   // scaling=2:1 table
   switch (movement) {
     case 0:

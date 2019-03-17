@@ -1,22 +1,14 @@
 #ifdef __SAMD21G18A__
-#include "PlatformSAMD21.h"
-
-volatile int8_t platform_sub_clock = 0;
-volatile bool platform_clock_enabled = false;
-volatile bool platform_clock_inhibited = false;
-
-// external callbacks
-extern "C" {
-  void __ps2EmptyCallback() {}
-}
-// implement those in your code
-void ps2Clock() __attribute__ ((weak, alias("__ps2EmptyCallback")));
-void ps2ClockInhibit()__attribute__ ((weak, alias("__ps2EmptyCallback")));
-void ps2ClockHostRts()__attribute__ ((weak, alias("__ps2EmptyCallback")));
+#include "PS2PortSAMD21.h"
 
 // use TIMER/COUNTER#5
 TcCount16 * const TC = (TcCount16*) TC5;
 const IRQn TCIRQn = TC5_IRQn;
+
+PS2PortObserver * observer = NULL;
+volatile int8_t platform_sub_clock = 0;
+volatile bool platform_clock_enabled = false;
+volatile bool platform_clock_inhibited = false;
 
 void TC5_Handler() {
   // wait until host releases the clock
@@ -26,7 +18,7 @@ void TC5_Handler() {
       digitalWrite(LED_PIN, LOW); // status LED
       // Host requests to send
       if (digitalRead(DATA_PIN) == LOW) {
-        ps2ClockHostRts();
+        observer->onHostRts();
       }
       // According to http://www.burtonsys.com/ps2_chapweske.htm:
       // "The Clock line must be continuously high for at least 50 microseconds before the device can begin to transmit its data."
@@ -48,7 +40,7 @@ void TC5_Handler() {
     if ((clk == HIGH) && (digitalRead(CLOCK_PIN) == LOW)) {
       platform_clock_inhibited = true;
       platform_sub_clock = 0;
-      ps2ClockInhibit();
+      observer->onInhibit();
       digitalWrite(CLOCK_PIN, HIGH); // release clock pin
       digitalWrite(DATA_PIN, HIGH); // release data pin
       digitalWrite(LED_PIN, HIGH); // status LED
@@ -56,7 +48,7 @@ void TC5_Handler() {
     // generate clock
     else if (platform_clock_enabled) {
       if (platform_sub_clock == 1) {
-        ps2Clock();
+        observer->onClock();
       }
       if (platform_sub_clock < 3) {
         ++platform_sub_clock;
@@ -65,12 +57,12 @@ void TC5_Handler() {
       }
     }
   }
-
   // set interrupt flag
   TC->INTFLAG.bit.MC0 = 1;
 }
 
-void samd21_setup_clock() {
+void PS2PortSAMD21::setup(PS2PortObserver * const _observer) {
+  observer = _observer;
   pinMode(CLOCK_PIN, OUTPUT);
   pinMode(DATA_PIN, OUTPUT);
   pinMode(LED_PIN, OUTPUT);
@@ -97,11 +89,11 @@ void samd21_setup_clock() {
   // enable TC interrupt request
   NVIC_ClearPendingIRQ(TCIRQn);
   NVIC_SetPriority(TCIRQn, 0);
-  samd21_enable_clock_irq();
+  enableClockIrq();
   while (TC->STATUS.bit.SYNCBUSY); // wait for synchronization
 }
 
-void samd21_enable_clock() {
+void PS2PortSAMD21::enableClock() {
   platform_sub_clock = 0;
   if (!platform_clock_enabled) {
     platform_clock_enabled = true;
@@ -109,7 +101,7 @@ void samd21_enable_clock() {
   }
 }
 
-void samd21_disable_clock() {
+void PS2PortSAMD21::disableClock() {
   if (platform_clock_enabled) {
     platform_clock_enabled = false;
     platform_sub_clock = 0;
@@ -119,53 +111,22 @@ void samd21_disable_clock() {
   }
 }
 
-void samd21_enable_clock_irq() {
+uint8_t PS2PortSAMD21::read() {
+  return digitalRead(DATA_PIN);
+}
+
+void PS2PortSAMD21::write(uint8_t bit) {
+  return digitalWrite(DATA_PIN, bit ? HIGH : LOW);
+}
+
+void PS2PortSAMD21::enableClockIrq() {
   TC->INTENSET.bit.MC0 = 1;
   NVIC_EnableIRQ(TCIRQn);
 }
 
-void samd21_disable_clock_irq() {
+void PS2PortSAMD21::disableClockIrq() {
   NVIC_DisableIRQ(TCIRQn); // disable interrupt request
   TC->INTENSET.bit.MC0 = 0;
-}
-
-void samd21_stop_clock() {
-  samd21_disable_clock();
-  samd21_disable_clock_irq();
-  TC->CTRLA.reg &= ~TC_CTRLA_ENABLE; // disable timer
-  while (TC->STATUS.bit.SYNCBUSY); // wait for synchronization
-}
-
-void samd21_setup_watchdog() {
-  // use low-power 32.768kHz oscillator as clock source @ 1024Hz.
-  GCLK->GENDIV.reg = GCLK_GENDIV_ID(GCM_FDPLL96M_32K) | GCLK_GENDIV_DIV(4); // use divisor of 32=2^(x+1)|x=4
-  while (GCLK->STATUS.bit.SYNCBUSY); // wait for synchronization
-  GCLK->GENCTRL.reg = GCLK_GENCTRL_ID(GCM_FDPLL96M_32K) | GCLK_GENCTRL_GENEN | GCLK_GENCTRL_SRC_OSCULP32K | GCLK_GENCTRL_DIVSEL | GCLK_GENCTRL_IDC;
-  while (GCLK->STATUS.bit.SYNCBUSY); // wait for synchronization
-  GCLK->CLKCTRL.reg = GCLK_CLKCTRL_ID_WDT | GCLK_CLKCTRL_CLKEN | GCLK_CLKCTRL_GEN_GCLK2; // feed GCLK2 to WDT
-  while (GCLK->STATUS.bit.SYNCBUSY); // wait for synchronization
-
-  // disable early-warning interrupt
-  NVIC_DisableIRQ(WDT_IRQn);
-  NVIC_ClearPendingIRQ(WDT_IRQn);
-  WDT->INTENSET.bit.EW = 0;
-
-  WDT->CONFIG.bit.PER = 9; // Set period to 4096=2^(x+3)|x=9|00<=x<=0B clock cycles (4s)
-  WDT->CTRL.bit.WEN = 0; // disable windowed mode (also resets on underflow)
-  WDT->CTRL.bit.ENABLE = 1; // start WDT
-  while (WDT->STATUS.bit.SYNCBUSY); // wait for synchronization
-}
-
-void samd21_reset_watchdog() {
-  if (!WDT->STATUS.bit.SYNCBUSY) {
-    WDT->CLEAR.reg = WDT_CLEAR_CLEAR_KEY;
-  }
-}
-
-extern "C" char* sbrk(int incr);
-int samd21_get_free_memory() {
-  uint8_t stack_top;
-  return &stack_top - reinterpret_cast<uint8_t*>(sbrk(0));
 }
 
 #endif

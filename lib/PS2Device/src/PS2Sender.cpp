@@ -1,26 +1,36 @@
-#include "Ps2Sender.h"
+#include "PS2Sender.h"
 
-bool Ps2Sender::isSending() {
+// callbacks
+extern "C" {
+  void __ps2DataSentEmptyCallback(uint8_t dataByte) { }
+}
+// implement in your code
+void ps2DataSent(uint8_t dataByte) __attribute__ ((weak, alias("__ps2DataSentEmptyCallback")));
+
+bool PS2Sender::isSending() {
   return sending;
 }
 
-void Ps2Sender::beginSend(uint8_t dataByte) {
+void PS2Sender::beginSend(uint8_t dataByte) {
   this->dataByte = dataByte;
   bitIdx = 0;
   if (!sending) {
-    platform_enable_clock();
     sending = true;
+    port->enableClock();
   }
 }
 
-void Ps2Sender::endSend() {
+void PS2Sender::endSend() {
   if (sending) {
-    platform_disable_clock();
     sending = false;
+    port->disableClock();
+  }
+  if (bitIdx >= 11) {
+    ps2DataSent(dataByte);
   }
 }
 
-void Ps2Sender::onClock() {
+void PS2Sender::onClock() {
   if (!sending) {
     return;
   }
@@ -50,10 +60,10 @@ void Ps2Sender::onClock() {
   }
   bitIdx++;;
 
-  digitalWrite(DATA_PIN, bit ? HIGH : LOW);
+  port->write(bit);
 }
 
-void Ps2Sender::onInhibit() {
+void PS2Sender::onInhibit() {
   if (!sending) {
     return;
   }
