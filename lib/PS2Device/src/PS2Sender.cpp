@@ -21,10 +21,11 @@ void PS2Sender::beginSend(uint8_t dataByte) {
 }
 
 void PS2Sender::endSend() {
-  if (sending) {
-    sending = false;
-    port->disableClock();
+  if (!sending) {
+    return;
   }
+  sending = false;
+  port->disableClock();
   if (bitIdx >= 11) {
     ps2DataSent(dataByte);
   }

@@ -36,10 +36,11 @@ void PS2Receiver::beginReceive() {
 }
 
 void PS2Receiver::endReceive() {
-  if (receiving) {
-    receiving = false;
-    port->disableClock();
+  if (!receiving) {
+    return;
   }
+  receiving = false;
+  port->disableClock();
   if (bitIdx >= 11) {
     ps2DataReceived(dataByte, dataValid);
   }
