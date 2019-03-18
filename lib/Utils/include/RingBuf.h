@@ -3,44 +3,44 @@
 
 #include <Arduino.h>
 
-template <uint16_t SIZE>
+template <typename T, int SIZE>
 class RingBuf {
 
 private:
 
-  uint8_t buffer[SIZE];
-  uint16_t headIdx; // prev. put idx
-  uint16_t tailIdx; // next get idx
+  T buffer[SIZE];
+  int headIdx; // prev. put idx
+  int tailIdx; // next get idx
 
 public:
 
   RingBuf();
 
-  uint16_t length();
+  int length();
   bool isFilled();
 
-  void put(uint8_t value);
-  uint8_t get(uint16_t idx);
+  void put(T value);
+  T get(int idx);
   void clear();
 };
 
-template <uint16_t SIZE>
-RingBuf<SIZE>::RingBuf() {
+template <typename T, int SIZE>
+RingBuf<T,SIZE>::RingBuf() {
   clear();
 }
 
-template <uint16_t SIZE>
-uint16_t RingBuf<SIZE>::length() {
+template <typename T, int SIZE>
+int RingBuf<T,SIZE>::length() {
   return (tailIdx > 0) ? SIZE : (headIdx + 1);
 }
 
-template <uint16_t SIZE>
-bool RingBuf<SIZE>::isFilled() {
+template <typename T, int SIZE>
+bool RingBuf<T,SIZE>::isFilled() {
   return length() >= SIZE;
 }
 
-template <uint16_t SIZE>
-void RingBuf<SIZE>::put(uint8_t value) {
+template <typename T, int SIZE>
+void RingBuf<T,SIZE>::put(T value) {
   if (++headIdx >= SIZE) {
     headIdx = 0;
     tailIdx = 1;
@@ -50,13 +50,13 @@ void RingBuf<SIZE>::put(uint8_t value) {
   buffer[headIdx] = value;
 }
 
-template <uint16_t SIZE>
-uint8_t RingBuf<SIZE>::get(uint16_t idx) {
+template <typename T, int SIZE>
+T RingBuf<T,SIZE>::get(int idx) {
   return buffer[(tailIdx + idx) % SIZE];
 }
 
-template <uint16_t SIZE>
-void RingBuf<SIZE>::clear() {
+template <typename T, int SIZE>
+void RingBuf<T,SIZE>::clear() {
   headIdx = -1;
   tailIdx = 0;
 }

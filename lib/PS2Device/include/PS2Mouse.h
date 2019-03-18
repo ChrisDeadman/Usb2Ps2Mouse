@@ -24,7 +24,7 @@ private:
   uint8_t sendBufferIdx = 0;
   uint8_t sendBufferLen = 0;
 
-  RingBuf<3> sampleRateHistory;
+  RingBuf<uint8_t, 3> sampleRateHistory;
 
   uint8_t deviceId;
   uint8_t activeCommand;

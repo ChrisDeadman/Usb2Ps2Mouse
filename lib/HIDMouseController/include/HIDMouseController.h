@@ -6,6 +6,12 @@
 
 class HIDMouseController : public HIDReportParser
 {
+
+private:
+
+  HIDBoot<HID_PROTOCOL_MOUSE> hostMouse;
+  MouseState state;
+
 public:
 
   HIDMouseController(USBHost *usb) : hostMouse(usb) {
@@ -21,10 +27,6 @@ public:
   };
 
   virtual void Parse(HID *hid, uint32_t is_rpt_id, uint32_t len, uint8_t *buf);
-
-private:
-  HIDBoot<HID_PROTOCOL_MOUSE> hostMouse;
-  MouseState state;
 };
 
 #endif // HID_MOUSE_CONTROLLER_H
