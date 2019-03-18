@@ -6,6 +6,8 @@ Author: ChrisDeadman
 
 Convert a USB mouse into a PS/2 mouse with the power of arduino :-)
 
+![Example Device](example_device.jpg)
+
 ## Notes
 * Provides IntelliMouse support (5 buttons + scrollwheel)
 * Watchdog timer is enabled and configured to 4sec
