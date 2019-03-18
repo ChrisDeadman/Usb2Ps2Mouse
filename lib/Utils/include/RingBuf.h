@@ -1,5 +1,5 @@
-#ifndef _RING_BUFFER_H_
-#define _RING_BUFFER_H_
+#ifndef _RING_BUF_H_
+#define _RING_BUF_H_
 
 #include <Arduino.h>
 
@@ -9,8 +9,8 @@ class RingBuf {
 private:
 
   uint8_t buffer[SIZE];
-  uint16_t headIdx;
-  uint16_t _length;
+  uint16_t headIdx; // prev. put idx
+  uint16_t tailIdx; // next get idx
 
 public:
 
@@ -26,40 +26,39 @@ public:
 
 template <uint16_t SIZE>
 RingBuf<SIZE>::RingBuf() {
-  this->headIdx = 0;
-  this->_length = 0;
+  clear();
 }
 
 template <uint16_t SIZE>
 uint16_t RingBuf<SIZE>::length() {
-  return _length;
+  return (tailIdx > 0) ? SIZE : (headIdx + 1);
 }
 
 template <uint16_t SIZE>
 bool RingBuf<SIZE>::isFilled() {
-  return _length >= SIZE;
+  return length() >= SIZE;
 }
 
 template <uint16_t SIZE>
 void RingBuf<SIZE>::put(uint8_t value) {
-  buffer[headIdx] = value;
-  if (++headIdx > SIZE) {
+  if (++headIdx >= SIZE) {
     headIdx = 0;
+    tailIdx = 1;
+  } else if (tailIdx > 0) {
+    tailIdx = (tailIdx + 1) % SIZE;
   }
-  if (_length < SIZE) {
-    ++_length;
-  }
+  buffer[headIdx] = value;
 }
 
 template <uint16_t SIZE>
 uint8_t RingBuf<SIZE>::get(uint16_t idx) {
-  return buffer[(headIdx + idx) % SIZE];
+  return buffer[(tailIdx + idx) % SIZE];
 }
 
 template <uint16_t SIZE>
 void RingBuf<SIZE>::clear() {
-  headIdx = 0;
-  _length = 0;
+  headIdx = -1;
+  tailIdx = 0;
 }
 
-#endif //_RING_BUFFER_H_
+#endif //_RING_BUF_H_
