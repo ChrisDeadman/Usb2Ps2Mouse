@@ -38,12 +38,12 @@ int getFreeMemory() {
   return &stack_top - reinterpret_cast<uint8_t*>(sbrk(0));
 }
 
-inline void ps2DataReceived(uint8_t dataByte, bool dataValid) {
+void ps2DataReceived(uint8_t dataByte, bool dataValid) {
   timeLastReceived = millis();
   logBuffer->concat("<= ")->concat("%02X", dataByte)->concat(dataValid ? "" : "!!")->concat("\r\n");
 }
 
-inline void ps2DataSent(uint8_t dataByte) {
+void ps2DataSent(uint8_t dataByte) {
   timeLastSent = millis();
   logBuffer->concat("=> ")->concat("%02X", dataByte)->concat("\r\n");
 }
