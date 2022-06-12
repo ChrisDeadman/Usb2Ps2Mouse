@@ -6,6 +6,8 @@ Author: ChrisDeadman
 
 Convert a USB mouse into a PS/2 mouse with the power of arduino :-)
 
+**Note**: This is obsolete and has been superseded by [usb-to-ps2-gameport-hat](https://github.com/ChrisDeadman/usb-to-ps2-gameport-hat).
+
 ![Example Device](example_device.jpg)
 
 ## Notes
